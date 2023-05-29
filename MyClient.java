@@ -60,7 +60,7 @@ public class MyClient {
                         // Should recieve a dot from OK
                         data = in.readLine();
                         
-                        out.write(("GETS Capable "+core+" "+memory+" "+disk+"\n").getBytes());
+                        out.write(("GETS Capable "+jobn.getCore()+" "+jobn.getMemory()+" "+jobn.getDisk()+"\n").getBytes());
                         out.flush();
 
                         // Read in new data from gets capable, and send OK
