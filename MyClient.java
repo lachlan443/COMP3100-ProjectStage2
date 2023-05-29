@@ -113,10 +113,7 @@ public class MyClient {
                         //If there are recs from avail, then simply read the first one and then schedule.
                         for (int i = 0; i < nRecs; i++) {
                             data = in.readLine();
-                            // System.out.println("Recieved: " + data);
-
                             if(i == 0) {
-                                // System.out.println("Selected first server: continuing to read lines");
                                 Server temp = new Server(data);
                                 selected = temp;
                             }
