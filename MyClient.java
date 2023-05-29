@@ -1,7 +1,6 @@
 import java.net.*;
 import java.io.*;
-import java.util.ArrayList; // import the ArrayList class
-
+import java.util.ArrayList;
 
 public class MyClient {
     public static void main(String args[]) {
@@ -14,43 +13,26 @@ public class MyClient {
             DataOutputStream out = new DataOutputStream(s.getOutputStream());
             String data;
 
-
-            //7 is the number of parameters in a JOBN request.
-            //JOBN submitTime jobID estRuntime core memory disk
-            String[] request = new String[7];
-            int jobID = 0;
-            int currentServerID = 0;
-            int core = 0;
-            int memory = 0;
-            int disk = 0;
-
-
             //Start of the 3 way handshake, client sends HELO
             out.write(("HELO\n").getBytes());
-            // System.out.println("Sent: HELO");
             out.flush();
             data = in.readLine();
-            // System.out.println("Received: " + data);
             //Server responds OK, client sends AUTH.
             if (data.equals("OK")) {
                 out.write(("AUTH "+System.getProperty("user.name")+"\n").getBytes());
-                // System.out.println("Sent: AUTH username");
                 out.flush();
                 data = in.readLine();
-                // System.out.println("Received: " + data);
             }
 
 
             //For each job.
             while (true) {
                 out.write(("REDY\n").getBytes());
-                // System.out.println("Sent: REDY");
                 out.flush();
 
                 data = in.readLine();
-                // System.out.println("Recieved: " + data);
                 //Split the response by the whitespaces.
-                request = data.split("\\s");
+                String[] request = data.split("\\s");
 
             
                 if (data.equals("NONE")) {
@@ -60,34 +42,19 @@ public class MyClient {
                 
             
                 if (request[0].equals("JOBN")) {
-                    //Request = {JOBN submitTime jobID estRuntime core memory disk}
-                    jobID = Integer.parseInt(request[2]);
-                    core = Integer.parseInt(request[4]);
-                    memory = Integer.parseInt(request[5]);
-                    disk = Integer.parseInt(request[6]);
-
-
-                    out.write(("GETS Avail "+core+" "+memory+" "+disk+"\n").getBytes());
-                    // System.out.println("Sent: GETS Avail "+core+" "+memory+" "+disk);
+                    Job jobn = new Job(request); 
+                    
+                    // Try GETS Avail First, if nothing is avaliable,
+                    // then use GETS Capable
+                    out.write(("GETS Avail "+jobn.getCore()+" "+jobn.getMemory()+" "+jobn.getDisk()+"\n").getBytes());
                     out.flush();
 
-                
                     //Recieve DATA, then send OK.
                     data = in.readLine();
-                    // System.out.println("Recieved: " + data);
-
-                    
                     out.write(("OK\n").getBytes());
-                    // System.out.println("Sent: OK");
-                    out.flush();
-
-                    //msgSplit = {DATA nRecs recLen}
+                    out.flush();    //msgSplit = {DATA nRecs recLen}
                     String msgSplit[] = data.split("\\s");  //Split string by whitespaces
                     int nRecs = Integer.parseInt(msgSplit[1]);
-
-
-                    //Try gets Avail first, then if no result resort to gets Capable.
-                    // nRecs will equal zero.
                     Server selected = new Server();
 
 
@@ -95,31 +62,22 @@ public class MyClient {
                     if (nRecs == 0) {
                         // Should recieve a dot from OK
                         data = in.readLine();
-                        // System.out.println("Recieved: " + data);
                         
-                        // Try with GETS Capable
                         out.write(("GETS Capable "+core+" "+memory+" "+disk+"\n").getBytes());
-                        // System.out.println("Sent: GETS Capable "+core+" "+memory+" "+disk);
                         out.flush();
 
-                        // Read in new data from gets capable
+                        // Read in new data from gets capable, and send OK
                         data = in.readLine();
-                        // System.out.println("Recievedd: " + data);
-                        //msgSplit = {DATA nRecs recLen}
-                        msgSplit = data.split("\\s");
+                        msgSplit = data.split("\\s"); //msgSplit = {DATA nRecs recLen}
                         nRecs = Integer.parseInt(msgSplit[1]);
-
-                        // Send OK
                         out.write(("OK\n").getBytes());
-                        // System.out.println("Sent: OK");
                         out.flush();
+
 
                         // Create an ArrayList of all the servers.
                         ArrayList<Server> servers = new ArrayList<>();
                         for (int i = 0; i < nRecs; i++) {
                             data = in.readLine();
-                            // System.out.println("ServerStateInfo Recieved: "+data);
-
                             Server curr = new Server(data);
                             servers.add(curr);
                         }
@@ -130,7 +88,7 @@ public class MyClient {
                         boolean foundActiveServer = false;
                         for(int i = 0; i < servers.size(); i++) {
                             // Check for any server that isnt already active.
-                            if (servers.get(i).getState().equals("active") == false) {
+                            if (!servers.get(i).getState().equals("active")) {
                                 if(servers.get(i).getState().equals("unavaliable")) {
                                     continue;  // If server is unavaliable, then move on.
                                 }
@@ -168,17 +126,12 @@ public class MyClient {
                         }
                     }
                    
-                    //Send OK, recieve .
+                    //Send OK, recieve ., then schedule
                     out.write(("OK\n").getBytes());
-                    // System.out.println("Sent: OK");
                     out.flush();
                     data = in.readLine();
-                    // System.out.println("Recieved" + data);
-
-                    //SCHD jobID serverType serverID
-                    out.write(("SCHD "+jobID+" "+selected.getType()+" "+selected.getID()+"\n").getBytes());
-                    // System.out.println("Sent: SCHD "+jobID+" "+selected.getType()+" "+selected.getID());
-                    out.flush();
+                    out.write(("SCHD "+jobn.getID()+" "+selected.getType()+" "+selected.getID()+"\n").getBytes());
+                    out.flush(); //SCHD jobID serverType serverID
 
                     //Wait for response from server.
                     while (data == in.readLine()) {
@@ -188,7 +141,6 @@ public class MyClient {
             }
             //Send quit as the final step.
             out.write(("QUIT\n").getBytes());
-            // System.out.println("Sent: QUIT");
             out.flush();
 
         } catch (UnknownHostException e) {
@@ -207,6 +159,26 @@ public class MyClient {
     }
 }
 
+class Job {
+    int jobID;
+    int core;
+    int memory;
+    int disk;
+
+    public Job(String[] request) {
+        //Request = {JOBN submitTime jobID estRuntime core memory disk}
+        jobID = Integer.parseInt(request[2]);
+        core = Integer.parseInt(request[4]);
+        memory = Integer.parseInt(request[5]);
+        disk = Integer.parseInt(request[6]);
+    }
+
+    public int getID() {return jobID;}
+    public int getCore() {return core;}
+    public int getMemory() {return memory;}
+    public int getDisk() {return disk;}
+}
+
 class Server {
     String serverType;
     int serverID;
@@ -219,13 +191,11 @@ class Server {
     int runningJobs;
     int totalJobs;
 
-    public Server() {
-        
-    }
+    public Server() {}
 
     public Server(String serv) {
-        String message[] = serv.split("\\s");
         //message[] = {ServerType serverID state curStartTime core memory disk #wJobs #rJobs}
+        String message[] = serv.split("\\s");
 
         this.serverType = message[0];
         this.serverID = Integer.parseInt(message[1]);
@@ -239,7 +209,6 @@ class Server {
         this.totalJobs = waitingJobs + runningJobs;
     }
 
-    // Getters and Setters
     public String getType() {return serverType;}
     public int getID() {return serverID;}
     public String getState() { return state;}
@@ -249,5 +218,4 @@ class Server {
     public int getTotalJobs() {return totalJobs;}
 
     public void setTotalJobs(int w) {this.totalJobs = w;}
-
 }
