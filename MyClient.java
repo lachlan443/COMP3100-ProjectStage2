@@ -29,12 +29,9 @@ public class MyClient {
             while (true) {
                 out.write(("REDY\n").getBytes());
                 out.flush();
-
                 data = in.readLine();
-                //Split the response by the whitespaces.
-                String[] request = data.split("\\s");
+                String[] request = data.split("\\s"); //Split the response by the whitespaces.
 
-            
                 if (data.equals("NONE")) {
                     break;
                 }
